@@ -1,0 +1,85 @@
+services: 
+  
+  db:
+    image: mariadb:12.2
+    restart: always
+    ports:
+      - 3306:3306
+    environment:
+     MYSQL_ROOT_PASSWORD: example
+    networks: 
+      - internal-container-network
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-pexample"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  fotoservice:
+    image: marcel88/photocontainer_multi:v1
+    restart: always
+    ports:
+      - 8120:8080
+    environment:
+      ImageStorage__RootPath: /nfs/fotoproject
+    networks: 
+      - internal-container-network
+    volumes:
+      - fotos:/nfs/fotoproject/
+    depends_on:
+      db:
+        condition: service_healthy
+
+  fotoholiday:
+    image: marcel88/photoholidy_multi:v3
+    restart: always
+    ports:
+      - 8130:8080
+    environment:
+      ImageStorage__RootPath: /nfs/fotoproject
+    networks: 
+      - internal-container-network
+    volumes:
+      - fotos:/nfs/fotoproject/
+    depends_on:
+      db:
+        condition: service_healthy
+ 
+  videoservice:
+    image: marcel88/videoapp_multi:v1
+    restart: always
+    ports:
+      - "8110:8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Server=db;Port=3306;Database=vid;User=root;Password=example;
+    networks:
+      - internal-container-network
+    volumes:
+      - myapp:/nfs/fotoproject/videos
+    depends_on:
+      db:
+        condition: service_healthy
+
+
+
+volumes:
+  myapp:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=192.168.2.22,rw
+      device: ":/volume1/fotoproject/videos"
+  
+  fotos:
+    driver: local
+    driver_opts:
+      type: nfs
+      device: "192.168.2.22:/volume1/fotoproject/"
+      o: addr=192.168.2.22,rw
+  mariadb-data:
+networks:
+ internal-container-network:
+  driver: bridge

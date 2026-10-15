@@ -1,0 +1,15 @@
+# .NET
+bin/
+obj/
+
+# Container archives
+*.oci.tar
+*.tar
+
+# Debug symbols
+*.pdb
+
+# Local secrets
+.env
+.env.*
+appsettings.Development.json

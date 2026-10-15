@@ -1,0 +1,19 @@
+@photoHolidayContainer_HostAddress = http://localhost:5205
+
+GET {{photoHolidayContainer_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
+POST {{photoHolidayContainer_HostAddress}}/api/holidays/upload
+Content-Type: application/json
+
+{
+  "title": "Summer Trip",
+  "locations": [
+    {
+      "name": "Rome",
+      "imageDirectory": "holidays/italy/rome"
+    }
+  ]
+}
