@@ -33,7 +33,7 @@ services:
         condition: service_healthy
 
   fotoholiday:
-    image: marcel88/photoholidy_multi:v3
+    image: marcel88/photoholidy_multi:v5
     restart: always
     ports:
       - 8130:8080
