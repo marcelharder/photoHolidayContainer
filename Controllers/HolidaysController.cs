@@ -8,8 +8,13 @@ namespace photoHolidayContainer.Controllers;
 
 [ApiController]
 [Route("api/holidays")]
-public sealed class HolidaysController(TravelContext db, LocationImageStorage imageStorage) : ControllerBase
+public sealed class HolidaysController(
+    TravelContext db,
+    VideoConversionQueue videoConversionQueue,
+    LocationImageStorage imageStorage) : ControllerBase
 {
+
+
     [HttpGet]
     public async Task<IActionResult> GetHolidays([FromQuery] int page, [FromQuery] int pageSize)
     {
@@ -106,69 +111,94 @@ public sealed class HolidaysController(TravelContext db, LocationImageStorage im
         return Ok(ToHolidayWithLocationsDto(holiday));
     }
 
-    [HttpPost("upload")]
-    public async Task<IActionResult> UploadHoliday(HolidayUploadDto dto)
+    
+[HttpPost("upload")]
+public async Task<IActionResult> UploadHoliday(HolidayUploadDto dto)
+{
+    // Collect video paths from all locations.
+    var videoPaths = new HashSet<string>(
+        StringComparer.OrdinalIgnoreCase);
+
+    var holiday = new Holiday
     {
-        var holiday = new Holiday
+        Title = dto.Title,
+        Description = dto.Description,
+        CoverImageUrl = dto.CoverImageUrl,
+        StartDate = dto.StartDate,
+        EndDate = dto.EndDate
+    };
+
+    foreach (var locationDto in dto.Locations)
+    {
+        var location = new Location
         {
-            Title = dto.Title,
-            Description = dto.Description,
-            CoverImageUrl = dto.CoverImageUrl,
-            StartDate = dto.StartDate,
-            EndDate = dto.EndDate
+            Holiday = holiday,
+            Name = locationDto.Name,
+            Description = locationDto.Description,
+            Latitude = locationDto.Latitude,
+            Longitude = locationDto.Longitude
         };
 
-        foreach (var locationDto in dto.Locations)
+        foreach (var imageDto in locationDto.Images)
         {
-            var location = new Location
+            location.Images.Add(new LocationImage
             {
-                Holiday = holiday,
-                Name = locationDto.Name,
-                Description = locationDto.Description,
-                Latitude = locationDto.Latitude,
-                Longitude = locationDto.Longitude
-            };
+                Location = location,
+                ImageUrl = imageDto.ImageUrl ?? string.Empty,
+                Caption = imageDto.Caption
+            });
+        }
 
-            foreach (var imageDto in locationDto.Images)
+        if (!string.IsNullOrWhiteSpace(locationDto.ImageDirectory))
+        {
+            if (!imageStorage.TryGetImages(
+                locationDto.ImageDirectory,
+                out var imagePaths))
+            {
+                Console.WriteLine(
+                    $"ImageDirectory: {locationDto.ImageDirectory}");
+
+                return BadRequest(new
+                {
+                    Error = "ImageDirectory must refer to an existing directory under the configured image root."
+                });
+            }
+
+            foreach (var imagePath in imagePaths)
             {
                 location.Images.Add(new LocationImage
                 {
                     Location = location,
-                    ImageUrl = imageDto.ImageUrl ?? string.Empty,
-                    Caption = imageDto.Caption
+                    ImageUrl = imageStorage.GetImageUrl(imagePath)
                 });
-            }
 
-            if (!string.IsNullOrWhiteSpace(locationDto.ImageDirectory))
-            {
-                if (!imageStorage.TryGetImages(locationDto.ImageDirectory, out var imagePaths))
+                // imagePath is already the full physical path
+                // returned by TryGetImages().
+                if (LocationImageStorage.IsVideo(imagePath))
                 {
-                    Console.WriteLine($"ImageDirectory: {locationDto.ImageDirectory}");
-
-                    return BadRequest(new
-                    {
-                        Error = "ImageDirectory must refer to an existing directory under the configured image root."
-                    });
-                }
-
-                foreach (var imagePath in imagePaths)
-                {
-                    location.Images.Add(new LocationImage
-                    {
-                        Location = location,
-                        ImageUrl = imageStorage.GetImageUrl(imagePath)
-                    });
+                    videoPaths.Add(imagePath);
                 }
             }
-
-            holiday.Locations.Add(location);
         }
 
-        db.Holidays.Add(holiday);
-        await db.SaveChangesAsync();
-
-        return Created($"/api/holidays/{holiday.Id}", ToHolidayWithLocationsDto(holiday));
+        holiday.Locations.Add(location);
     }
+
+    // Save the holiday and its locations/images first.
+    db.Holidays.Add(holiday);
+    await db.SaveChangesAsync();
+
+    // Queue conversion only after successful database save.
+    foreach (var videoPath in videoPaths)
+    {
+        await videoConversionQueue.QueueAsync(videoPath);
+    }
+
+    return Created(
+        $"/api/holidays/{holiday.Id}",
+        ToHolidayWithLocationsDto(holiday));
+}
+
 
     [HttpDelete("deleteHoliday/{id}")]
     public async Task<IActionResult> DeleteHoliday(int id)

@@ -14,7 +14,8 @@
       "justMyCode": true,
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_URLS": "http://localhost:5000"
+        "ASPNETCORE_URLS": "http://localhost:5000",
+        "VideoTranscoding__CachePath": "/home/marcel/video-cache"
       }
     }
   ]

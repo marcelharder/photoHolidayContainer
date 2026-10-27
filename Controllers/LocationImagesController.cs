@@ -8,6 +8,7 @@ namespace photoHolidayContainer.Controllers;
 [ApiController]
 [Route("api/location-images")]
 public sealed class LocationImagesController(
+    VideoThumbnailService thumbnailService,
     LocationImageStorage imageStorage,
     TravelContext db) : ControllerBase
 {
@@ -41,6 +42,56 @@ public sealed class LocationImagesController(
 
         return await CreateImageResult(fullPath);
     }
+
+
+
+
+[HttpGet("{id:int}/thumbnail")]
+public async Task<IActionResult> GetVideoThumbnail(
+    int id,
+    CancellationToken cancellationToken)
+{
+    var image = await db.LocationImages
+        .AsNoTracking()
+        .FirstOrDefaultAsync(
+            x => x.Id == id,
+            cancellationToken);
+
+    if (image is null)
+    {
+        return NotFound();
+    }
+
+    // TryGetStoredImage already returns the full physical path.
+    if (!image.ImageUrl.StartsWith(
+            ImageUrlPrefix,
+            StringComparison.Ordinal)
+        || !TryGetStoredImage(
+            image.ImageUrl,
+            out var fullPath))
+    {
+        return NotFound();
+    }
+
+    // Only videos can have video thumbnails.
+    if (!LocationImageStorage.IsVideo(fullPath))
+    {
+        return NotFound();
+    }
+
+    // Generate the thumbnail or retrieve it from cache.
+    var thumbnailPath = await thumbnailService
+        .GetThumbnailAsync(
+            fullPath,
+            cancellationToken);
+
+    return PhysicalFile(
+        thumbnailPath,
+        "image/jpeg");
+}
+
+
+
 
     private bool TryGetStoredImage(string imageUrl, out string fullPath)
     {
@@ -99,6 +150,22 @@ public sealed class LocationImagesController(
                 enableRangeProcessing: true));
     }
 
+if (LocationImageStorage.IsVideo(fullPath))
+{
+    var contentType = Path.GetExtension(fullPath)
+        .ToLowerInvariant() switch
+    {
+        ".mp4" => "video/mp4",
+        ".mov" => "video/quicktime",
+        _ => "application/octet-stream"
+    };
+
+    return Task.FromResult<IActionResult>(
+        PhysicalFile(
+            fullPath,
+            contentType,
+            enableRangeProcessing: true));
+}
     using var bitmap = SKBitmap.Decode(fullPath);
 
     if (bitmap == null)

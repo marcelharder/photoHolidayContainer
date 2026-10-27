@@ -18,7 +18,7 @@ services:
       retries: 20
 
   fotoservice:
-    image: marcel88/photocontainer_multi:v1
+    image: marcel88/photocontainer_multi:v2
     restart: always
     ports:
       - 8120:8080
@@ -32,21 +32,25 @@ services:
       db:
         condition: service_healthy
 
-  fotoholiday:
-    image: marcel88/photoholidy_multi:v5
-    restart: always
-    ports:
-      - 8130:8080
-    environment:
-      ImageStorage__RootPath: /nfs/fotoproject
-    networks: 
-      - internal-container-network
-    volumes:
-      - fotos:/nfs/fotoproject/
-    depends_on:
-      db:
-        condition: service_healthy
- 
+  
+#  fotoholiday:
+#    image: holiday_test:v1
+#    restart: always
+#    ports:
+#      - "8130:8080"
+#    environment:
+#      ImageStorage__RootPath: /nfs/fotoproject
+#      VideoThumbnails__CachePath: /app/thumbnail-cache
+#      VideoTranscoding__CachePath: /home/marcel/video-cache
+#    networks:
+#      - internal-container-network
+#    volumes:
+#      - fotos:/nfs/fotoproject/
+#      - holiday-thumbnail-cache:/app/thumbnail-cache
+#    depends_on:
+#      db:
+#        condition: service_healthy
+
   videoservice:
     image: marcel88/videoapp_multi:v1
     restart: always
@@ -66,6 +70,7 @@ services:
 
 
 volumes:
+  holiday-thumbnail-cache:
   myapp:
     driver: local
     driver_opts:

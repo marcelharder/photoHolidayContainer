@@ -2,20 +2,34 @@ namespace photoHolidayContainer.data;
 
 public sealed class LocationImageStorage
 {
-    private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".avif",
-        ".bmp",
-        ".gif",
-        ".jpeg",
-        ".jpg",
-        ".png",
-        ".tif",
-        ".tiff",
-        ".webp"
-    };
+    
+    private static readonly HashSet<string> SupportedExtensions =
+    new(StringComparer.OrdinalIgnoreCase)
+{
+    ".avif",
+    ".bmp",
+    ".gif",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".tif",
+    ".tiff",
+    ".webp",
+
+    // Holiday videos
+    ".mp4",
+    ".mov"
+};
 
     private readonly string _rootPath;
+
+    public static bool IsVideo(string path)
+{
+    return Path.GetExtension(path)
+        .Equals(".mp4", StringComparison.OrdinalIgnoreCase)
+        || Path.GetExtension(path)
+        .Equals(".mov", StringComparison.OrdinalIgnoreCase);
+}
 
     public LocationImageStorage(string rootPath)
     {
